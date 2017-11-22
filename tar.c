@@ -223,8 +223,8 @@ archive(const char *path)
 		h->linkname[r] = '\0';
 	} else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
 		h->type = S_ISCHR(st.st_mode) ? CHARDEV : BLOCKDEV;
-		putoctal(h->major, (unsigned)major(st.st_dev), sizeof(h->major));
-		putoctal(h->minor, (unsigned)minor(st.st_dev), sizeof(h->minor));
+		putoctal(h->major, (unsigned)(st.st_dev >> 22), sizeof(h->major));
+		putoctal(h->minor, (unsigned)(st.st_dev & 0x3FF), sizeof(h->minor));
 	} else if (S_ISFIFO(st.st_mode)) {
 		h->type = FIFO;
 	}
@@ -254,7 +254,7 @@ unarchive(char *fname, ssize_t l, char b[BLKSIZ])
 	long mode, major, minor, type, mtime, uid, gid;
 	struct header *h = (struct header *)b;
 	int fd = -1;
-	struct timespec times[2];
+	struct timeval times[2];
 
 	if (!mflag && ((mtime = strtol(h->mtime, &p, 8)) < 0 || *p != '\0'))
 		eprintf("strtol %s: invalid number\n", h->mtime);
@@ -300,7 +300,7 @@ unarchive(char *fname, ssize_t l, char b[BLKSIZ])
 		if ((minor = strtol(h->minor, &p, 8)) < 0 || *p != '\0')
 			eprintf("strtol %s: invalid number\n", h->minor);
 		type = (h->type == CHARDEV) ? S_IFCHR : S_IFBLK;
-		if (mknod(fname, type | mode, makedev(major, minor)) < 0)
+		if (mknod(fname, type | mode, (major << 22) |  minor) < 0)
 			eprintf("mknod %s:", fname);
 		break;
 	case FIFO:
@@ -329,8 +329,8 @@ unarchive(char *fname, ssize_t l, char b[BLKSIZ])
 		return 0;
 
 	times[0].tv_sec = times[1].tv_sec = mtime;
-	times[0].tv_nsec = times[1].tv_nsec = 0;
-	if (!mflag && utimensat(AT_FDCWD, fname, times, AT_SYMLINK_NOFOLLOW) < 0)
+	times[0].tv_usec = times[1].tv_usec = 0;
+	if (!mflag && utimes(fname, times) < 0)
 		weprintf("utimensat %s:", fname);
 	if (h->type == SYMLINK) {
 		if (!getuid() && lchown(fname, uid, gid))
@@ -442,7 +442,7 @@ static void
 xt(int argc, char *argv[], int mode)
 {
 	char b[BLKSIZ], fname[256 + 1], *p;
-	struct timespec times[2];
+	struct timeval times[2];
 	struct header *h = (struct header *)b;
 	struct dirtime *dirtime;
 	long size;
@@ -488,8 +488,8 @@ xt(int argc, char *argv[], int mode)
 	if (mode == 'x' && !mflag) {
 		while ((dirtime = popdirtime())) {
 			times[0].tv_sec = times[1].tv_sec = dirtime->mtime;
-			times[0].tv_nsec = times[1].tv_nsec = 0;
-			if (utimensat(AT_FDCWD, dirtime->name, times, 0) < 0)
+			times[0].tv_usec = times[1].tv_usec = 0;
+			if (utimes(dirtime->name, times) < 0)
 				eprintf("utimensat %s:", fname);
 			free(dirtime->name);
 		}
