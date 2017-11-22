@@ -369,16 +369,57 @@ static void
 compile(char *s, int isfile)
 {
 	FILE *f;
+	char *str, *here;;
 
 	if (!isfile && !*s) /* empty string script */
 		return;
 
-	f = isfile ? fopen(s, "r") : fmemopen(s, strlen(s), "r");
-	if (!f)
-		eprintf("fopen/fmemopen:");
+	if (isfile) {
+		f = fopen(s, "r");
+		if (!f)
+			eprintf("fopen/fmemopen:");
+	} else {
+		str = s;
+		here = s;
+	}
 
 	/* NOTE: get arg functions can't use genbuf */
-	while (read_line(f, &genbuf) != EOF) {
+	while (1) {
+		if (isfile) {
+			if (read_line(f, &genbuf) == EOF) {
+				break;
+			}
+		} else {
+			if (*str == '\0') {
+				break;
+			}
+
+			while (1) {
+				if (*str == '\n' || *str == '\0') {
+					if (genbuf.cap < str - here + 1) {
+						genbuf.str = realloc(genbuf.str, str - here + 1);
+						if (genbuf.str == NULL) {
+							perror("realloc");
+							exit(EXIT_FAILURE);
+						}
+						genbuf.cap = str - here + 1;
+					}
+					memcpy(genbuf.str, here, str - here);
+					genbuf.str[str - here] = '\0';
+
+					if (*str == '\n') {
+						here = str + 1;
+					} else {
+						here = str;
+					}
+
+					break;
+				} else {
+					str++;
+				}
+			}
+		}
+
 		s = genbuf.str;
 
 		/* if the first two characters of the script are "#n" default output shall be suppressed */
@@ -424,7 +465,9 @@ compile(char *s, int isfile)
 		}
 	}
 
-	fshut(f, s);
+	if (isfile) {
+		fshut(f, s);
+	}
 }
 
 /* FIXME: if we decide to honor lack of trailing newline, set/clear a global
