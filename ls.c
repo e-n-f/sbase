@@ -73,11 +73,11 @@ mkent(struct entry *ent, char *path, int dostat, int follow)
 	ent->gid   = st.st_gid;
 	ent->size  = st.st_size;
 	if (cflag)
-		ent->t = st.st_ctim;
+		ent->t.tv_sec = st.st_ctime;
 	else if (uflag)
-		ent->t = st.st_atim;
+		ent->t.tv_sec = st.st_atime;
 	else
-		ent->t = st.st_mtim;
+		ent->t.tv_sec = st.st_mtime;
 	ent->dev   = st.st_dev;
 	ent->rdev  = st.st_rdev;
 	ent->ino   = st.st_ino;
@@ -199,7 +199,7 @@ output(const struct entry *ent)
 	printf("%s %4ld %-8.8s %-8.8s ", mode, (long)ent->nlink, pwname, grname);
 
 	if (S_ISBLK(ent->mode) || S_ISCHR(ent->mode))
-		printf("%4u, %4u ", major(ent->rdev), minor(ent->rdev));
+		printf("%4u, %4u ", (ent->rdev) >> 22, (ent->rdev) & 0x3FFFFF);
 	else if (hflag)
 		printf("%10s ", humansize(ent->size));
 	else
