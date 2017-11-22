@@ -29,7 +29,7 @@ cp(const char *s1, const char *s2, int depth)
 	int f1, f2;
 	struct dirent *d;
 	struct stat st;
-	struct timespec times[2];
+	struct timeval times[2];
 	ssize_t r;
 	int (*statf)(const char *, struct stat *);
 	char target[PATH_MAX], ns1[PATH_MAX], ns2[PATH_MAX], *statf_name;
@@ -145,9 +145,9 @@ cp(const char *s1, const char *s2, int depth)
 
 	if (cp_aflag || cp_pflag) {
 		/* atime and mtime */
-		times[0] = st.st_atim;
-		times[1] = st.st_mtim;
-		if (utimensat(AT_FDCWD, s2, times, AT_SYMLINK_NOFOLLOW) < 0) {
+		times[0].tv_sec = st.st_atime;
+		times[1].tv_sec = st.st_mtime;
+		if (utimes(s2, times) < 0) {
 			weprintf("utimensat %s:", s2);
 			cp_status = 1;
 		}

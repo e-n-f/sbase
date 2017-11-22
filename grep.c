@@ -99,6 +99,24 @@ addpatternfile(FILE *fp)
 		enprintf(Error, "read error:");
 }
 
+static void
+addpatternbuf(char *s) {
+	const char *here = s;
+
+	while (1) {
+		if (*s == '\n') {
+			*s = '\0';
+			addpattern(here, s - here);
+			here = s + 1;
+		} else if (*s == '\0') {
+			addpattern(here, s - here);
+			break;
+		} else {
+			s++;
+		}
+	}
+}
+
 static int
 grep(FILE *fp, const char *str)
 {
@@ -199,9 +217,7 @@ main(int argc, char *argv[])
 		break;
 	case 'e':
 		arg = EARGF(usage());
-		if (!(fp = fmemopen(arg, strlen(arg) + 1, "r")))
-			eprintf("fmemopen:");
-		addpatternfile(fp);
+		addpatternbuf(arg);
 		efshut(fp, arg);
 		eflag = 1;
 		break;
@@ -249,9 +265,7 @@ main(int argc, char *argv[])
 
 	/* just add literal pattern to list */
 	if (!eflag && !fflag) {
-		if (!(fp = fmemopen(argv[0], strlen(argv[0]) + 1, "r")))
-			eprintf("fmemopen:");
-		addpatternfile(fp);
+		addpatternbuf(arg);
 		efshut(fp, argv[0]);
 		argc--;
 		argv++;

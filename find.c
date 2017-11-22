@@ -208,7 +208,7 @@ extern char **environ;
 static struct tok *toks; /* holds allocated array of all toks created while parsing */
 static struct tok *root; /* points to root of expression tree, inside toks array */
 
-static struct timespec start; /* time find was started, used for -[acm]time */
+static struct timeval start; /* time find was started, used for -[acm]time */
 
 static size_t envlen; /* number of bytes in environ, used to calculate against ARG_MAX */
 static size_t argmax; /* value of ARG_MAX retrieved using sysconf(3p) */
@@ -1047,7 +1047,7 @@ main(int argc, char **argv)
 	if ((argmax = sysconf(_SC_ARG_MAX)) == (size_t)-1)
 		argmax = _POSIX_ARG_MAX;
 
-	if (clock_gettime(CLOCK_REALTIME, &start) < 0)
+	if (gettimeofday(&start, NULL) < 0)
 		weprintf("clock_gettime() failed:");
 
 	while (npaths--)

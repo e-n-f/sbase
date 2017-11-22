@@ -26,7 +26,7 @@ static void
 setdate(const char *s, struct tm *now)
 {
 	struct tm date;
-	struct timespec ts;
+	struct timeval tv;
 
 	switch (strlen(s)) {
 	case 8:
@@ -52,12 +52,12 @@ setdate(const char *s, struct tm *now)
 	date.tm_sec = 0;
 	date.tm_isdst = -1;
 
-	ts.tv_sec = mktime(&date);
-	if (ts.tv_sec == -1)
+	tv.tv_sec = mktime(&date);
+	if (tv.tv_sec == -1)
 		eprintf("mktime:");
-	ts.tv_nsec = 0;
+	tv.tv_usec = 0;
 
-	if (clock_settime(CLOCK_REALTIME, &ts) == -1)
+	if (settimeofday(&tv, NULL) == -1)
 		eprintf("clock_settime:");
 }
 
