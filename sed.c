@@ -409,6 +409,7 @@ compile(char *s, int isfile)
 
 					if (*str == '\n') {
 						here = str + 1;
+						str++;
 					} else {
 						here = str;
 					}
