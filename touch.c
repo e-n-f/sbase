@@ -7,20 +7,54 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "util.h"
+
+#define OMIT 1000001
+#define NOW 1000002
 
 static int aflag;
 static int cflag;
 static int mflag;
-static struct timespec times[2] = {{.tv_nsec = UTIME_NOW}};
+static struct timeval times[2] = {{.tv_usec = NOW}};
 
 static void
 touch(const char *file)
 {
 	int fd, ret;
 
-	if (utimensat(AT_FDCWD, file, times, 0) == 0)
+	if (times[0].tv_usec == OMIT && times[1].tv_usec == OMIT) {
+		return;
+	}
+
+	if (times[0].tv_usec == OMIT || times[1].tv_usec == OMIT) {
+		struct stat st;
+		if (stat(file, &st) != 0) {
+			eprintf("stat %s:", file);
+		}
+
+		if (times[0].tv_usec == OMIT) {
+			times[0].tv_sec = st.st_atime;
+			times[0].tv_usec = 0;
+		}
+		if (times[1].tv_usec == OMIT) {
+			times[1].tv_sec = st.st_mtime;
+			times[1].tv_usec = 0;
+		}
+	}
+
+	for (size_t i = 0; i < 2; i++) {
+		if (times[i].tv_usec == NOW) {
+			struct timeval tv;
+			if (gettimeofday(&tv, NULL) != 0) {
+				eprintf("gettimeofday");
+			}
+			times[i] = tv;
+		}
+	}
+
+	if (utimes(file, times) == 0)
 		return;
 	if (errno != ENOENT)
 		eprintf("utimensat %s:", file);
@@ -28,7 +62,7 @@ touch(const char *file)
 		return;
 	if ((fd = open(file, O_WRONLY | O_CREAT | O_EXCL, 0666)) < 0)
 		eprintf("open %s:", file);
-	ret = futimens(fd, times);
+	ret = utimes(file, times);
 	close(fd);
 	if (ret < 0)
 		eprintf("futimens %s:", file);
@@ -121,7 +155,7 @@ main(int argc, char *argv[])
 	case 'd':
 	case 't':
 		times[0].tv_sec = parsetime(EARGF(usage()));
-		times[0].tv_nsec = 0;
+		times[0].tv_usec = 0;
 		break;
 	case 'm':
 		mflag = 1;
@@ -130,12 +164,14 @@ main(int argc, char *argv[])
 		ref = EARGF(usage());
 		if (stat(ref, &st) < 0)
 			eprintf("stat '%s':", ref);
-		times[0] = st.st_atim;
-		times[1] = st.st_mtim;
+		times[0].tv_sec = st.st_atime;
+		times[0].tv_usec = 0;
+		times[1].tv_sec = st.st_mtime;
+		times[1].tv_usec = 0;
 		break;
 	case 'T':
 		times[0].tv_sec = estrtonum(EARGF(usage()), 0, LLONG_MAX);
-		times[0].tv_nsec = 0;
+		times[0].tv_usec = 0;
 		break;
 	default:
 		usage();
@@ -148,9 +184,9 @@ main(int argc, char *argv[])
 	if (!ref)
 		times[1] = times[0];
 	if (!aflag)
-		times[0].tv_nsec = UTIME_OMIT;
+		times[0].tv_usec = OMIT;
 	if (!mflag)
-		times[1].tv_nsec = UTIME_OMIT;
+		times[1].tv_usec = OMIT;
 
 	for (; *argv; argc--, argv++)
 		touch(*argv);
